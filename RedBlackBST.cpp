@@ -1,4 +1,5 @@
 #include <cassert>
+#include <iostream>
 
 using namespace std;
 
@@ -20,13 +21,48 @@ class RedBlackBST {
 public:
     RedBlackBST(): m_root(nullptr) {}
 
-    void insert(int v)
-    {
+    bool contains(int v) {
+        if (!m_root)
+            return false;
+
+        auto node = m_root;
+        while (node) {
+            if (v < node->val)
+                node = node->left;
+            else if (v > node->val)
+                node = node->right;
+            else
+                return true;
+        }
+
+        return false;
+    }
+
+    void insert(int v) {
         m_root = insert(m_root, v);
         m_root->color = BLACK;
     }
 
-    void check() { assert(isBST() && is23() && isBalanced()); }
+    void erase(int v) {
+        if (!m_root)
+            return;
+
+        if (!contains(v))
+            return;
+
+        if (!isRed(m_root->left) && !isRed(m_root->right))
+            m_root->color = RED;
+
+        m_root = erase(m_root, v);
+        if (m_root)
+            m_root->color = BLACK;
+    }
+
+    void check() {
+        assert(isBST());
+        assert(is23());
+        assert(isBalanced());
+    }
 
 private:
     TreeNode* insert(TreeNode* root, int v) {
@@ -38,6 +74,46 @@ private:
             root->right = insert(root->right, v);
         else
             return root;
+
+        return balance(root);
+    }
+
+    TreeNode* erase(TreeNode* root, int v) {
+        if (v < root->val) {
+            if (!isRed(root->left) && !isRed(root->left->left))
+                root = moveRedLeft(root);
+            root->left = erase(root->left, v);
+        } else if (v > root->val) {
+            if (isRed(root->left))
+                root = rotateRight(root);
+            if (!isRed(root->right) && !isRed(root->right->left))
+                root = moveRedRight(root);
+            root->right = erase(root->right, v);
+        } else {
+            if (isRed(root->left)) {
+                root = rotateRight(root);
+                return erase(root, v); // 如果发生过旋转，下面的3个if都是不会执行的，这一行可以删除掉
+                // root->right = erase(root->right, v);
+                // return balance(root);
+            }
+
+            if (!root->left && !root->right) {
+                delete root;
+                return nullptr;
+            }
+
+            if (!isRed(root->right) && !isRed(root->right->left))
+                root = moveRedRight(root);
+            
+            if (v == root->val) {
+                TreeNode* node = root->right;
+                while (node->left) node = node->left;
+                root->val = node->val;
+                node->val = v;
+            }
+
+            root->right = erase(root->right, v);
+        }
 
         return balance(root);
     }
@@ -76,6 +152,25 @@ private:
         root->color = !root->color;
         root->left->color = !root->left->color;
         root->right->color = !root->right->color;
+    }
+
+    TreeNode* moveRedLeft(TreeNode* root) {
+        flipColors(root);
+        if (isRed(root->right->left)) {
+            root->right = rotateRight(root->right);
+            root = rotateLeft(root);
+            flipColors(root);
+        }
+        return root;
+    }
+
+    TreeNode* moveRedRight(TreeNode* root) {
+        flipColors(root);
+        if (isRed(root->left->left)) {
+            root = rotateRight(root);
+            flipColors(root);
+        }
+        return root;
     }
 
 private:
@@ -123,5 +218,12 @@ int main() {
     for (int i = 1; i <= 100; i++)
         root.insert(i);
     root.check();
+    int n;
+    cout << "n = ";
+    while (cin >> n) {
+        root.erase(n);
+        root.check();
+        cout << "n = ";
+    }
     return 0;
 }
